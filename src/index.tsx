@@ -3,9 +3,10 @@ import React, {
     useEffect,
     useImperativeHandle,
     forwardRef,
-    createRef,
     Ref,
-    useRef
+    useRef,
+    useCallback,
+    useMemo
 } from "react"
 import {
     Viewer,
@@ -140,8 +141,54 @@ function filterNavbar(navbar?: boolean | string | Array<string | NavbarCustomBut
     return navbar
 }
 
-const ReactPhotoSphereViewer = forwardRef((options: Props, ref: unknown): React.ReactElement => {
-    const sphereElementRef = createRef<HTMLDivElement>()
+function useDomElement(): [HTMLDivElement | undefined, (r: HTMLDivElement) => void] {
+    const [element, setElement] = useState<HTMLDivElement>()
+    const ref = useCallback((r: HTMLDivElement) => {
+        if (r && r !== element) {
+            setElement(r)
+        }
+    }, [])
+    return [element, ref]
+}
+
+const ReactPhotoSphereViewer = forwardRef((props: Props, ref: unknown): React.ReactElement => {
+    const [sphereElement, setRef] = useDomElement();
+    const options = useMemo(() => props, [
+        props.src,
+        props.navbar,
+        props.height,
+        props.width,
+        props.containerClass,
+        props.littlePlanet,
+        props.fishEye,
+        props.lang,
+        props.onPositionChange,
+        props.onZoomChange,
+        props.onClick,
+        props.onDblclick,
+        props.onReady,
+        props.moveSpeed,
+        props.zoomSpeed,
+        props.moveInertia,
+        props.mousewheel,
+        props.mousemove,
+        props.mousewheelCtrlKey,
+        props.touchmoveTwoFingers,
+        props.useXmpData,
+        props.panoData,
+        props.requestHeaders,
+        props.canvasBackground,
+        props.withCredentials,
+        props.keyboard,
+        props.plugins,
+        props.sphereCorrection,
+        props.minFov,
+        props.maxFov,
+        props.defaultZoomLvl,
+        props.defaultYaw,
+        props.defaultPitch,
+        props.container,
+    ])
     const spherePlayerInstance = useRef<Viewer | null>(null)
     let LITTLEPLANET_MAX_ZOOM = 130
     const [LITTLEPLANET_DEF_LAT] = useState(-90)
@@ -164,10 +211,10 @@ const ReactPhotoSphereViewer = forwardRef((options: Props, ref: unknown): React.
 
     useEffect(() => {
         let littlePlanetEnabled = true
-        if (sphereElementRef.current && !spherePlayerInstance.current) {
+        if (sphereElement && !spherePlayerInstance.current) {
             const _c = new Viewer({
                 ...adaptOptions(options),
-                container: sphereElementRef.current,
+                container: sphereElement,
                 panorama: options.src,
                 size: {
                     height: options.height,
@@ -318,10 +365,9 @@ const ReactPhotoSphereViewer = forwardRef((options: Props, ref: unknown): React.
 
             spherePlayerInstance.current = _c
         }
-    }, [sphereElementRef, options])
+    }, [sphereElement, options])
 
-    // Methods
-    useImperativeHandle(ref as Ref<unknown>, () => ({
+    const _imperativeHandle = () => ({
         animate(options: AnimateOptions) {
             Emitter.emit("animate", options)
         },
@@ -409,10 +455,12 @@ const ReactPhotoSphereViewer = forwardRef((options: Props, ref: unknown): React.
         stopKeyboardControl() {
             return spherePlayerInstance.current?.stopKeyboardControl()
         }
-    }), [spherePlayerInstance.current, sphereElementRef, options, ref])
+    })
+    // Methods
+    useImperativeHandle(ref as Ref<ReturnType<typeof _imperativeHandle>>, _imperativeHandle, [spherePlayerInstance.current, sphereElement, options, ref])
 
     return (
-        <div className={options.containerClass || "view-container"} ref={sphereElementRef} />
+        <div className={options.containerClass || "view-container"} ref={setRef} />
     )
 })
 
